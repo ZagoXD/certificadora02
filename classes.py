@@ -1,5 +1,7 @@
 import random
 import tkinter as tk
+import os
+import pickle
 from abc import ABC, abstractmethod
 
 class Circuito(ABC):
@@ -14,6 +16,39 @@ class Circuito(ABC):
 
     def calcular_tensao_total(self):
         return round(self.corrente * self.calcular_resistencia_eq(), 2)
+    
+ARQUIVO_RECORDE = "recorde.pkl"
+ARQUIVO_PROGRESSO = "progresso.pkl"
+
+def salvar_dados(arquivo, dados):
+    """ Salva dados em um arquivo usando pickle """
+    with open(arquivo, "wb") as f:
+        pickle.dump(dados, f)
+
+def carregar_dados(arquivo):
+    """ Carrega dados de um arquivo usando pickle """
+    if os.path.exists(arquivo):
+        with open(arquivo, "rb") as f:
+            return pickle.load(f)
+    return None  # Retorna None se o arquivo não existir
+
+def carregar_recorde():
+    """ Carrega o recorde salvo do arquivo """
+    recorde = carregar_dados(ARQUIVO_RECORDE)
+    return recorde if recorde is not None else 0
+
+def salvar_recorde(novo_recorde):
+    """ Salva um novo recorde no arquivo """
+    salvar_dados(ARQUIVO_RECORDE, novo_recorde)
+
+def salvar_progresso(pontuacao):
+    """ Salva o progresso do usuário no arquivo """
+    salvar_dados(ARQUIVO_PROGRESSO, pontuacao)
+
+def carregar_progresso():
+    """ Carrega o progresso salvo do arquivo """
+    progresso = carregar_dados(ARQUIVO_PROGRESSO)
+    return progresso if progresso is not None else 0
 
 class CircuitoSerie(Circuito):
     def calcular_resistencia_eq(self):
@@ -40,17 +75,33 @@ class JogoEletronica:
     def __init__(self, root):
         self.root = root
         self.root.title("Jogo de Eletrônica - Lei de Ohm")
-        self.pontuacao = 0
-        self.root.geometry("600x600") 
-        
+        self.pontuacao = carregar_progresso()
+        self.recorde = carregar_recorde()
+        self.jogo_terminado = False
+        self.root.geometry("600x600")
+
         tk.Label(root, text="Bem-vindo ao Jogo de Eletrônica!", font=("Arial", 14)).pack(pady=10)
-        self.label_pontuacao = tk.Label(root, text=f"Pontuação: {self.pontuacao}", font=("Arial", 12))
-        self.label_pontuacao.pack(pady=5)
+
+        self.label_recorde = tk.Label(root, text=f"Recorde: {self.recorde} pontos", font=("Arial", 12), fg="blue")
+        self.label_recorde.pack(pady=5)
 
         self.botao_iniciar = tk.Button(root, text="Iniciar", command=self.iniciar_jogo)
         self.botao_iniciar.pack(pady=5)
-        self.botao_sair = tk.Button(root, text="Sair", command=root.quit)
+        self.botao_sair = tk.Button(root, text="Sair", command=self.sair)
         self.botao_sair.pack(pady=5)
+
+        self.root.protocol("WM_DELETE_WINDOW", self.sair)
+
+        if self.pontuacao > 0:
+            self.iniciar_jogo()
+
+    def sair(self):
+        """ Salva o progresso e fecha o jogo """
+        if self.jogo_terminado:
+            salvar_progresso(0) 
+        else:
+            salvar_progresso(self.pontuacao) 
+        self.root.quit()
     
     def iniciar_jogo(self):
         self.botao_iniciar.pack_forget()
@@ -95,7 +146,7 @@ class JogoEletronica:
     def desenhar_circuito(self):
         """ Desenha um circuito no canvas """
         self.canvas.delete("all")
-        x_start, y_start = 50, 100
+        x_start, y_start = 50, 50
 
         if self.tipo_circuito == "série":
             for i, r in enumerate(self.circuito.resistores):
@@ -109,7 +160,7 @@ class JogoEletronica:
                 x_start += 70
             self.canvas.create_line(x_start, y_start, x_start + 40, y_start, width=3) 
 
-        else:  # Circuito em paralelo
+        else:
             mid_x = 200
             num_resistores = len(self.circuito.resistores)
 
@@ -128,9 +179,6 @@ class JogoEletronica:
                 self.canvas.create_line(mid_x - 50, y_offset, mid_x - 20, y_offset, width=3)
                 self.canvas.create_line(mid_x + 20, y_offset, mid_x + 50, y_offset, width=3)
 
-
-    
-    
     def verificar_resposta(self):
         try:
             resposta = int(float(self.entry_resposta.get())) 
@@ -144,7 +192,6 @@ class JogoEletronica:
                 indice = int(self.parametro_faltante.split("_")[1]) - 1
                 valor_correto = int(self.circuito.resistores[indice])
 
-            # Permitir uma margem de erro de ±1 unidade
             if valor_correto - 1 <= resposta <= valor_correto + 1:
                 self.pontuacao += 1
                 self.nova_rodada()
@@ -157,6 +204,14 @@ class JogoEletronica:
         self.label_erro.config(text="")
 
     def exibir_fim_de_jogo(self):
+        if self.pontuacao > self.recorde:
+            self.recorde = self.pontuacao
+            salvar_recorde(self.recorde)
+
+        self.jogo_terminado = True
+
+        salvar_progresso(0)
+
         for widget in self.root.winfo_children():
             widget.destroy()
 
@@ -164,10 +219,13 @@ class JogoEletronica:
         tk.Label(self.root, text=f"Você conseguiu {self.pontuacao} pontos!", font=("Arial", 14)).pack(pady=10)
 
         tk.Button(self.root, text="Reiniciar Jogo", command=self.reiniciar_jogo, font=("Arial", 12)).pack(pady=5)
-        tk.Button(self.root, text="Sair", command=self.root.quit, font=("Arial", 12)).pack(pady=5)
+        tk.Button(self.root, text="Sair", command=lambda: [salvar_progresso(0), self.root.quit()], font=("Arial", 12)).pack(pady=5)
     
     def reiniciar_jogo(self):
         self.pontuacao = 0
+        self.jogo_terminado = False 
+        if os.path.exists(ARQUIVO_PROGRESSO):
+            os.remove(ARQUIVO_PROGRESSO)
         self.iniciar_jogo()
 
 if __name__ == "__main__":
