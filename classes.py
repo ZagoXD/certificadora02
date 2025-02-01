@@ -21,32 +21,26 @@ ARQUIVO_RECORDE = "recorde.pkl"
 ARQUIVO_PROGRESSO = "progresso.pkl"
 
 def salvar_dados(arquivo, dados):
-    """ Salva dados em um arquivo usando pickle """
     with open(arquivo, "wb") as f:
         pickle.dump(dados, f)
 
 def carregar_dados(arquivo):
-    """ Carrega dados de um arquivo usando pickle """
     if os.path.exists(arquivo):
         with open(arquivo, "rb") as f:
             return pickle.load(f)
-    return None  # Retorna None se o arquivo não existir
+    return None 
 
 def carregar_recorde():
-    """ Carrega o recorde salvo do arquivo """
     recorde = carregar_dados(ARQUIVO_RECORDE)
     return recorde if recorde is not None else 0
 
 def salvar_recorde(novo_recorde):
-    """ Salva um novo recorde no arquivo """
     salvar_dados(ARQUIVO_RECORDE, novo_recorde)
 
 def salvar_progresso(pontuacao):
-    """ Salva o progresso do usuário no arquivo """
     salvar_dados(ARQUIVO_PROGRESSO, pontuacao)
 
 def carregar_progresso():
-    """ Carrega o progresso salvo do arquivo """
     progresso = carregar_dados(ARQUIVO_PROGRESSO)
     return progresso if progresso is not None else 0
 
@@ -144,7 +138,6 @@ class JogoEletronica:
         tk.Button(self.root, text="Verificar", command=self.verificar_resposta).pack(pady=10)
 
     def desenhar_circuito(self):
-        """ Desenha um circuito no canvas """
         self.canvas.delete("all")
         x_start, y_start = 50, 50
 
